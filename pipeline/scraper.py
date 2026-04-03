@@ -6,7 +6,7 @@
 import requests
 import logging
 
-from typing import List, Dict, cast, Optional
+from typing import Dict, Optional
 from pipeline.aliases import NewsLike
 from haashi_pkg.utility import Logger
 
@@ -18,7 +18,7 @@ class NairametricsScraper:
         self.URL = (
             "https://nairametrics.com"
             "/wp-json/wp/v2/posts?categories=207871&_embed"
-            "&per_page=100"
+            "&per_page=50"
         )
 
         self.headers: Dict[str, str] = {
@@ -31,7 +31,7 @@ class NairametricsScraper:
         }
         self.logger = logger or Logger(level=logging.INFO)
 
-    def scrape_category(self) -> NewsLike:
+    def fetch_financial_news(self) -> NewsLike:
 
         response: Optional[requests.Response] = None
 
@@ -62,10 +62,12 @@ class NairametricsScraper:
             link = post["link"]
             timestamp = post["date"]
 
-            image = None
-
-            if "_embedded" in post:
-                image = post["_embedded"]["wp:featuredmedia"][0]["source_url"]
+            try:
+                image = (
+                    post["_embedded"]["wp:featuredmedia"][0]["source_url"]
+                )
+            except (KeyError, IndexError):
+                image = None
 
             news.append({
                 "title": title,
@@ -80,4 +82,4 @@ class NairametricsScraper:
 if __name__ == "__main__":
     scraper = NairametricsScraper()
     import json
-    print(json.dumps(scraper.scrape_category(), indent=4))
+    print(json.dumps(scraper.fetch_financial_news(), indent=4))

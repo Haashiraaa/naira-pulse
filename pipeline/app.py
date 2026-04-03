@@ -34,9 +34,8 @@ class NewsPipeline:
     def run(self, delay: Union[float, int] = 600):
 
         failed_attempts: int = 0
-        run_app = failed_attempts < 3
 
-        while run_app:
+        while failed_attempts < 3:
 
             try:
                 if not self.CHAT_ID or not self.BOT_TOKEN:
@@ -52,14 +51,15 @@ class NewsPipeline:
                     scraper=self.scraper, store=self.store
                 )
 
-                scraped_news = self.scraper.scrape_category()
+                scraped_news = self.scraper.fetch_financial_news()
 
                 news = processor.get_new_items(scraped_news)
 
                 for news_item in news:
 
                     formatted_news = NewsFormatter.format(news_item)
-                    bot.send_message(formatted_news, news_item)
+                    # bot.send_message(formatted_news, news_item)
+                    self.logger.info(formatted_news)
 
                 self.store.news = scraped_news
                 self.store.save()
@@ -71,5 +71,7 @@ class NewsPipeline:
                 self.logger.error(f"Failed to process news: {e}")
                 self.logger.error(exception=e, save_to_json=True)
                 failed_attempts += 1
+                retries = 3 - failed_attempts
+                self.logger.info(f"Available retries: {retries}")
                 self.logger.info(f"Retrying in {delay} seconds...")
                 time.sleep(delay)

@@ -1,0 +1,5 @@
+
+
+# requirements.txt
+
+git+https://github.com/Haashiraaa/haashi-analytics-toolkit.git@v1.6.0

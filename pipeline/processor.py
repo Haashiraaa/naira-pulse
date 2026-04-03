@@ -3,11 +3,12 @@
 # processor.py
 
 import logging
-from typing import List, Dict, Optional
+from typing import Optional, cast
 from haashi_pkg.utility import Logger
 from pipeline.scraper import NairametricsScraper
 from pipeline.store import NewsStore
 from pipeline.aliases import NewsLike
+from pipeline.filters import filter as FILTERS
 
 
 class NewsProcessor:
@@ -27,7 +28,7 @@ class NewsProcessor:
         self, scraped_news: Optional[NewsLike] = None
     ) -> NewsLike:
 
-        scraped_news = scraped_news or self.scraper.scrape_category()
+        scraped_news = scraped_news or self.scraper.fetch_financial_news()
         if not scraped_news:
             raise Exception("Scraped news is empty or None!")
 
@@ -38,6 +39,7 @@ class NewsProcessor:
         new_items = [
             item for item in scraped_news
             if item["link"] not in stored_links
+            and any(kw in cast(str, item["title"]).lower() for kw in FILTERS)
         ]
 
         return new_items
