@@ -1,4 +1,9 @@
 
+# filters.py
+
+
+# Note: Ensure to add a comma at the end of each filter string
+
 
 filter = (
     "cbn",

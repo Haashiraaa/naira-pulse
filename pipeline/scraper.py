@@ -30,7 +30,6 @@ class NairametricsScraper:
             "Accept-Language": "en-US,en;q=0.9",
         }
         self.logger = logger or Logger(level=logging.INFO)
-        self.news: NewsLike = []
 
     def scrape_category(self) -> Optional[NewsLike]:
 

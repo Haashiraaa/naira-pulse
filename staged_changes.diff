@@ -1,192 +1,448 @@
-diff --git a/pipeline/category_scraper.py b/pipeline/category_scraper.py
+diff --git a/pipeline/aliases.py b/pipeline/aliases.py
 new file mode 100644
-index 0000000..06fa3c0
+index 0000000..dc15cd7
 --- /dev/null
-+++ b/pipeline/category_scraper.py
-@@ -0,0 +1,71 @@
++++ b/pipeline/aliases.py
+@@ -0,0 +1,7 @@
++
++# aliases.py
++
++from typing import List, Dict, Optional
 +
 +
-+# category_scraper.py
-+
-+
-+import requests
-+import logging
-+
-+from typing import List, Dict, cast, Optional
-+from haashi_pkg.utility import Logger
-+
-+
-+class NairametricsScraper:
-+
-+    def __init__(self, logger: Optional[Logger] = None) -> None:
-+
-+        self.URL = (
-+            "https://nairametrics.com"
-+            "/wp-json/wp/v2/posts?categories=207871&_embed"
-+        )
-+
-+        self.headers: Dict[str, str] = {
-+            "User-Agent": (
-+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-+                "AppleWebKit/537.36 (KHTML, like Gecko) "
-+                "Chrome/120.0.0.0 Safari/537.36"
-+            ),
-+            "Accept-Language": "en-US,en;q=0.9",
-+        }
-+        self.logger = logger or Logger(level=logging.INFO)
-+        self.posts_list: List[Dict[str, str]] = []
-+
-+    def scrape_category(self) -> Optional[List[Dict[str, str]]]:
-+
-+        response: Optional[requests.Response] = None
-+
-+        try:
-+
-+            response = requests.get(url=self.URL, headers=self.headers)
-+            response.raise_for_status()
-+            self.logger.debug(f"Response: {response.status_code}")
-+
-+        except requests.exceptions.Timeout:
-+            self.logger.error("Request timeout - site may be down")
-+            return
-+
-+        except requests.exceptions.RequestException as e:
-+            self.logger.error(f"Failed to fetch page: {e}")
-+            self.logger.error(exception=e, save_to_json=True)
-+            raise
-+
-+        posts = response.json()
-+        if not posts:
-+            raise Exception("No posts found!")
-+
-+        for post in posts:
-+            title = post["title"]["rendered"]
-+            link = post["link"]
-+            timestamp = post["date"]
-+
-+            self.posts_list.append({
-+                "title": title, "link": link, "timestamp": timestamp
-+            })
-+
-+        return self.posts_list
-+
-+
-+if __name__ == "__main__":
-+    scraper = NairametricsScraper()
-+    import json
-+    print(json.dumps(scraper.scrape_category(), indent=4))
++NewsLike = List[Dict[str, Optional[str]]]
 diff --git a/pipeline/filters.py b/pipeline/filters.py
-new file mode 100644
-index 0000000..f57dd86
---- /dev/null
+index f57dd86..eddc72f 100644
+--- a/pipeline/filters.py
 +++ b/pipeline/filters.py
-@@ -0,0 +1,47 @@
-+
-+
-+filter = (
-+    "cbn",
-+    "naira",
-+    "inflation",
-+    "interest rate",
-+    "monetary policy",
-+    "forex",
-+    "fx",
-+    "exchange",
-+    "exchange rate",
-+    "bank",
-+    "banking",
-+    "loan",
-+    "credit",
-+    "deposit",
-+    "liquidity",
-+    "treasury",
-+    "bond",
-+    "yield",
-+    "stock",
-+    "equity",
-+    "market",
-+    "ngn",
-+    "nigeria economy",
-+    "gdp",
-+    "fiscal",
-+    "revenue",
-+    "deficit",
-+    "budget",
-+    "tax",
-+    "fintech",
-+    "payment",
-+    "remittance",
-+    "gtbank",
-+    "access bank",
-+    "zenith bank",
-+    "uba",
-+    "first bank",
-+    "sterling bank",
-+    "wema bank",
-+    "fcmb",
-+    "opay",
-+    "palmpay",
-+    "kuda"
-+)
-diff --git a/pipeline/rss_fetcher.py b/pipeline/rss_fetcher.py
+@@ -43,5 +43,6 @@ filter = (
+     "fcmb",
+     "opay",
+     "palmpay",
+-    "kuda"
++    "kuda",
++    "money",
+ )
+diff --git a/pipeline/processor.py b/pipeline/processor.py
 new file mode 100644
-index 0000000..1d3a9b4
+index 0000000..8b93a97
 --- /dev/null
-+++ b/pipeline/rss_fetcher.py
-@@ -0,0 +1,56 @@
++++ b/pipeline/processor.py
+@@ -0,0 +1,43 @@
 +
 +
-+# rss_fetcher.py
++# processor.py
 +
-+
-+import feedparser
 +import logging
-+from feedparser import FeedParserDict
-+from filters import filter
-+from typing import List, Dict, cast, Optional
++from typing import List, Dict, Optional
 +from haashi_pkg.utility import Logger
++from pipeline.scraper import NairametricsScraper
++from pipeline.store import NewsStore
++from pipeline.aliases import NewsLike
 +
 +
-+class RSSFeedFetcher:
++class NewsProcessor:
 +
-+    def __init__(self, logger: Optional[Logger] = None) -> None:
++    def __init__(
++        self,
++        scraper: Optional[NairametricsScraper] = None,
++        store: Optional[NewsStore] = None,
++        logger: Optional[Logger] = None
++    ) -> None:
 +
-+        self.URL = "https://nairametrics.com/feed/"
-+        self.filter = filter
-+
-+        self.feed_list: List[Dict[str, str]] = []
 +        self.logger = logger or Logger(level=logging.INFO)
++        self.scraper = scraper or NairametricsScraper(logger=self.logger)
++        self.store = store or NewsStore(logger=self.logger)
 +
-+    def fetch_feed(self) -> List[Dict[str, str]]:
++    def get_new_items(
++        self, scraped_news: Optional[NewsLike] = None
++    ) -> NewsLike:
 +
-+        feed = feedparser.parse(self.URL)
-+        entries = cast(List[FeedParserDict], feed.entries)
++        scraped_news = scraped_news or self.scraper.scrape_category()
++        if not scraped_news:
++            raise Exception("Scraped news is empty or None!")
 +
-+        self.logger.info(f"Fetched {len(entries)} entries from {self.URL}")
++        stored_news = self.store.load() or []
 +
-+        if not entries:
-+            raise Exception("No entries found!")
++        stored_links = {item["link"] for item in stored_news}
 +
-+        for entry in entries:
++        new_items = [
++            item for item in scraped_news
++            if item["link"] not in stored_links
++        ]
 +
-+            title = cast(str, entry.get("title", "")).lower()
-+            # summary = cast(str, entry.get("summary", "")).lower()
-+            link = cast(str, entry.get("link", ""))
-+            timestamp = cast(str, entry.get("published", ""))
++        return new_items
+diff --git a/pipeline/rss_fetcher.py b/pipeline/rss_fetcher.py
+deleted file mode 100644
+index 1d3a9b4..0000000
+--- a/pipeline/rss_fetcher.py
++++ /dev/null
+@@ -1,56 +0,0 @@
+-
+-
+-# rss_fetcher.py
+-
+-
+-import feedparser
+-import logging
+-from feedparser import FeedParserDict
+-from filters import filter
+-from typing import List, Dict, cast, Optional
+-from haashi_pkg.utility import Logger
+-
+-
+-class RSSFeedFetcher:
+-
+-    def __init__(self, logger: Optional[Logger] = None) -> None:
+-
+-        self.URL = "https://nairametrics.com/feed/"
+-        self.filter = filter
+-
+-        self.feed_list: List[Dict[str, str]] = []
+-        self.logger = logger or Logger(level=logging.INFO)
+-
+-    def fetch_feed(self) -> List[Dict[str, str]]:
+-
+-        feed = feedparser.parse(self.URL)
+-        entries = cast(List[FeedParserDict], feed.entries)
+-
+-        self.logger.info(f"Fetched {len(entries)} entries from {self.URL}")
+-
+-        if not entries:
+-            raise Exception("No entries found!")
+-
+-        for entry in entries:
+-
+-            title = cast(str, entry.get("title", "")).lower()
+-            # summary = cast(str, entry.get("summary", "")).lower()
+-            link = cast(str, entry.get("link", ""))
+-            timestamp = cast(str, entry.get("published", ""))
+-
+-            # simple filter
+-            if any(k in title for k in self.filter):
+-                self.feed_list.append({
+-                    "title": title,
+-                    "link": link,
+-                    "timestamp": timestamp
+-                })
+-
+-        return self.feed_list
+-
+-
+-if __name__ == "__main__":
+-
+-    rss = RSSFeedFetcher()
+-    import json
+-    print(json.dumps(rss.fetch_feed(), indent=4))
+diff --git a/pipeline/category_scraper.py b/pipeline/scraper.py
+similarity index 76%
+rename from pipeline/category_scraper.py
+rename to pipeline/scraper.py
+index 06fa3c0..ddc7d22 100644
+--- a/pipeline/category_scraper.py
++++ b/pipeline/scraper.py
+@@ -1,12 +1,13 @@
+ 
+ 
+-# category_scraper.py
++# scraper.py
+ 
+ 
+ import requests
+ import logging
+ 
+ from typing import List, Dict, cast, Optional
++from pipeline.aliases import NewsLike
+ from haashi_pkg.utility import Logger
+ 
+ 
+@@ -17,6 +18,7 @@ class NairametricsScraper:
+         self.URL = (
+             "https://nairametrics.com"
+             "/wp-json/wp/v2/posts?categories=207871&_embed"
++            "&per_page=100"
+         )
+ 
+         self.headers: Dict[str, str] = {
+@@ -28,9 +30,9 @@ class NairametricsScraper:
+             "Accept-Language": "en-US,en;q=0.9",
+         }
+         self.logger = logger or Logger(level=logging.INFO)
+-        self.posts_list: List[Dict[str, str]] = []
++        self.news: NewsLike = []
+ 
+-    def scrape_category(self) -> Optional[List[Dict[str, str]]]:
++    def scrape_category(self) -> Optional[NewsLike]:
+ 
+         response: Optional[requests.Response] = None
+ 
+@@ -53,16 +55,26 @@ class NairametricsScraper:
+         if not posts:
+             raise Exception("No posts found!")
+ 
++        news: NewsLike = []
 +
-+            # simple filter
-+            if any(k in title for k in self.filter):
-+                self.feed_list.append({
-+                    "title": title,
-+                    "link": link,
-+                    "timestamp": timestamp
-+                })
+         for post in posts:
+             title = post["title"]["rendered"]
+             link = post["link"]
+             timestamp = post["date"]
+ 
+-            self.posts_list.append({
+-                "title": title, "link": link, "timestamp": timestamp
++            image = None
 +
-+        return self.feed_list
++            if "_embedded" in post:
++                image = post["_embedded"]["wp:featuredmedia"][0]["source_url"]
++
++            news.append({
++                "title": title,
++                "link": link,
++                "timestamp": timestamp,
++                "image": image
+             })
+ 
+-        return self.posts_list
++        return news
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/pipeline/store.py b/pipeline/store.py
+new file mode 100644
+index 0000000..673e90d
+--- /dev/null
++++ b/pipeline/store.py
+@@ -0,0 +1,36 @@
 +
 +
-+if __name__ == "__main__":
++# store.py
 +
-+    rss = RSSFeedFetcher()
-+    import json
-+    print(json.dumps(rss.fetch_feed(), indent=4))
++import logging
++from pipeline.aliases import NewsLike
++from typing import Optional
++from haashi_pkg.utility import Logger, FileHandler
++
++
++class NewsStore:
++
++    def __init__(
++        self,
++        path: Optional[str] = None,
++        logger: Optional[Logger] = None,
++        handler: Optional[FileHandler] = None
++
++    ) -> None:
++        self.path = path or "saved_news/news.json"
++        self.logger = logger or Logger(level=logging.INFO)
++        self.handler = handler or FileHandler(logger=self.logger)
++        self.script_dir = self.handler.get_script_dir()
++        self.news = []
++
++    def _validate_news(self, news: Optional[NewsLike] = None) -> NewsLike:
++        return news or []
++
++    def load(self) -> NewsLike:
++        path = str(self.script_dir / self.path)
++        self.news = self.handler.read_json(path)
++        return self._validate_news(self.news)  # type: ignore
++
++    def save(self) -> None:
++        path = str(self.script_dir / self.path)
++        self.handler.save_json(data=self.news, path=path)
+diff --git a/staged_changes.diff b/staged_changes.diff
+new file mode 100644
+index 0000000..ef75e5a
+--- /dev/null
++++ b/staged_changes.diff
+@@ -0,0 +1,192 @@
++diff --git a/pipeline/category_scraper.py b/pipeline/category_scraper.py
++new file mode 100644
++index 0000000..06fa3c0
++--- /dev/null
+++++ b/pipeline/category_scraper.py
++@@ -0,0 +1,71 @@
+++
+++
+++# category_scraper.py
+++
+++
+++import requests
+++import logging
+++
+++from typing import List, Dict, cast, Optional
+++from haashi_pkg.utility import Logger
+++
+++
+++class NairametricsScraper:
+++
+++    def __init__(self, logger: Optional[Logger] = None) -> None:
+++
+++        self.URL = (
+++            "https://nairametrics.com"
+++            "/wp-json/wp/v2/posts?categories=207871&_embed"
+++        )
+++
+++        self.headers: Dict[str, str] = {
+++            "User-Agent": (
+++                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+++                "AppleWebKit/537.36 (KHTML, like Gecko) "
+++                "Chrome/120.0.0.0 Safari/537.36"
+++            ),
+++            "Accept-Language": "en-US,en;q=0.9",
+++        }
+++        self.logger = logger or Logger(level=logging.INFO)
+++        self.posts_list: List[Dict[str, str]] = []
+++
+++    def scrape_category(self) -> Optional[List[Dict[str, str]]]:
+++
+++        response: Optional[requests.Response] = None
+++
+++        try:
+++
+++            response = requests.get(url=self.URL, headers=self.headers)
+++            response.raise_for_status()
+++            self.logger.debug(f"Response: {response.status_code}")
+++
+++        except requests.exceptions.Timeout:
+++            self.logger.error("Request timeout - site may be down")
+++            return
+++
+++        except requests.exceptions.RequestException as e:
+++            self.logger.error(f"Failed to fetch page: {e}")
+++            self.logger.error(exception=e, save_to_json=True)
+++            raise
+++
+++        posts = response.json()
+++        if not posts:
+++            raise Exception("No posts found!")
+++
+++        for post in posts:
+++            title = post["title"]["rendered"]
+++            link = post["link"]
+++            timestamp = post["date"]
+++
+++            self.posts_list.append({
+++                "title": title, "link": link, "timestamp": timestamp
+++            })
+++
+++        return self.posts_list
+++
+++
+++if __name__ == "__main__":
+++    scraper = NairametricsScraper()
+++    import json
+++    print(json.dumps(scraper.scrape_category(), indent=4))
++diff --git a/pipeline/filters.py b/pipeline/filters.py
++new file mode 100644
++index 0000000..f57dd86
++--- /dev/null
+++++ b/pipeline/filters.py
++@@ -0,0 +1,47 @@
+++
+++
+++filter = (
+++    "cbn",
+++    "naira",
+++    "inflation",
+++    "interest rate",
+++    "monetary policy",
+++    "forex",
+++    "fx",
+++    "exchange",
+++    "exchange rate",
+++    "bank",
+++    "banking",
+++    "loan",
+++    "credit",
+++    "deposit",
+++    "liquidity",
+++    "treasury",
+++    "bond",
+++    "yield",
+++    "stock",
+++    "equity",
+++    "market",
+++    "ngn",
+++    "nigeria economy",
+++    "gdp",
+++    "fiscal",
+++    "revenue",
+++    "deficit",
+++    "budget",
+++    "tax",
+++    "fintech",
+++    "payment",
+++    "remittance",
+++    "gtbank",
+++    "access bank",
+++    "zenith bank",
+++    "uba",
+++    "first bank",
+++    "sterling bank",
+++    "wema bank",
+++    "fcmb",
+++    "opay",
+++    "palmpay",
+++    "kuda"
+++)
++diff --git a/pipeline/rss_fetcher.py b/pipeline/rss_fetcher.py
++new file mode 100644
++index 0000000..1d3a9b4
++--- /dev/null
+++++ b/pipeline/rss_fetcher.py
++@@ -0,0 +1,56 @@
+++
+++
+++# rss_fetcher.py
+++
+++
+++import feedparser
+++import logging
+++from feedparser import FeedParserDict
+++from filters import filter
+++from typing import List, Dict, cast, Optional
+++from haashi_pkg.utility import Logger
+++
+++
+++class RSSFeedFetcher:
+++
+++    def __init__(self, logger: Optional[Logger] = None) -> None:
+++
+++        self.URL = "https://nairametrics.com/feed/"
+++        self.filter = filter
+++
+++        self.feed_list: List[Dict[str, str]] = []
+++        self.logger = logger or Logger(level=logging.INFO)
+++
+++    def fetch_feed(self) -> List[Dict[str, str]]:
+++
+++        feed = feedparser.parse(self.URL)
+++        entries = cast(List[FeedParserDict], feed.entries)
+++
+++        self.logger.info(f"Fetched {len(entries)} entries from {self.URL}")
+++
+++        if not entries:
+++            raise Exception("No entries found!")
+++
+++        for entry in entries:
+++
+++            title = cast(str, entry.get("title", "")).lower()
+++            # summary = cast(str, entry.get("summary", "")).lower()
+++            link = cast(str, entry.get("link", ""))
+++            timestamp = cast(str, entry.get("published", ""))
+++
+++            # simple filter
+++            if any(k in title for k in self.filter):
+++                self.feed_list.append({
+++                    "title": title,
+++                    "link": link,
+++                    "timestamp": timestamp
+++                })
+++
+++        return self.feed_list
+++
+++
+++if __name__ == "__main__":
+++
+++    rss = RSSFeedFetcher()
+++    import json
+++    print(json.dumps(rss.fetch_feed(), indent=4))
