@@ -28,7 +28,12 @@ class NewsStore:
 
     def load(self) -> NewsLike:
         path = str(self.script_dir / self.path)
-        self.news = self.handler.read_json(path)
+        try:
+            self.news = self.handler.read_json(path)
+        except Exception as e:
+            self.logger.error(f"Failed to load news: {e}")
+            self.logger.error(exception=e, save_to_json=True)
+            self.news = []
         return self._validate_news(self.news)  # type: ignore
 
     def save(self) -> None:

@@ -17,7 +17,7 @@ class NewsFormatter:
         formatted_date = dt.strftime("%b %d, %Y %I:%M %p")
 
         return (
-            f"{cls.PREFIX}\n\n"
+            f"\n{cls.PREFIX}\n\n"
             f"{news_item['title']}\n\n"
             f"📅 {formatted_date}\n"
             f"{cls.LINK_TEXT} {news_item['link']}"
