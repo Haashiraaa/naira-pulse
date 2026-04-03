@@ -1,9 +1,0 @@
-[
-    {
-        "timestamp": "2026-04-03T12:42:31.765290",
-        "type": "FileOperationError",
-        "message": "Failed to read JSON from /root/projects/workspace/naira-pulse/pipeline/saved_news/news.json: File not found: /root/projects/workspace/naira-pulse/pipeline/saved_news/news.json",
-        "context": "unspecified",
-        "traceback": "Traceback (most recent call last):\n  File \"/root/projects/my_venv/lib/python3.14/site-packages/haashi_pkg/utility/utils.py\", line 749, in read_json\n    path = self.ensure_readable_file(path)\n  File \"/root/projects/my_venv/lib/python3.14/site-packages/haashi_pkg/utility/utils.py\", line 699, in ensure_readable_file\n    raise FileNotFoundError(f\"File not found: {path}\")\nFileNotFoundError: File not found: /root/projects/workspace/naira-pulse/pipeline/saved_news/news.json\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/root/projects/workspace/naira-pulse/pipeline/store.py\", line 32, in load\n    self.news = self.handler.read_json(path)\n                ~~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/root/projects/my_venv/lib/python3.14/site-packages/haashi_pkg/utility/utils.py\", line 755, in read_json\n    raise FileOperationError(\n        f\"Failed to read JSON from {path}: {e}\") from e\nhaashi_pkg.utility.utils.FileOperationError: Failed to read JSON from /root/projects/workspace/naira-pulse/pipeline/saved_news/news.json: File not found: /root/projects/workspace/naira-pulse/pipeline/saved_news/news.json\n"
-    }
-]
