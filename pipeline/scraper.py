@@ -1,12 +1,13 @@
 
 
-# category_scraper.py
+# scraper.py
 
 
 import requests
 import logging
 
 from typing import List, Dict, cast, Optional
+from pipeline.aliases import NewsLike
 from haashi_pkg.utility import Logger
 
 
@@ -17,6 +18,7 @@ class NairametricsScraper:
         self.URL = (
             "https://nairametrics.com"
             "/wp-json/wp/v2/posts?categories=207871&_embed"
+            "&per_page=100"
         )
 
         self.headers: Dict[str, str] = {
@@ -28,9 +30,9 @@ class NairametricsScraper:
             "Accept-Language": "en-US,en;q=0.9",
         }
         self.logger = logger or Logger(level=logging.INFO)
-        self.posts_list: List[Dict[str, str]] = []
+        self.news: NewsLike = []
 
-    def scrape_category(self) -> Optional[List[Dict[str, str]]]:
+    def scrape_category(self) -> Optional[NewsLike]:
 
         response: Optional[requests.Response] = None
 
@@ -53,16 +55,26 @@ class NairametricsScraper:
         if not posts:
             raise Exception("No posts found!")
 
+        news: NewsLike = []
+
         for post in posts:
             title = post["title"]["rendered"]
             link = post["link"]
             timestamp = post["date"]
 
-            self.posts_list.append({
-                "title": title, "link": link, "timestamp": timestamp
+            image = None
+
+            if "_embedded" in post:
+                image = post["_embedded"]["wp:featuredmedia"][0]["source_url"]
+
+            news.append({
+                "title": title,
+                "link": link,
+                "timestamp": timestamp,
+                "image": image
             })
 
-        return self.posts_list
+        return news
 
 
 if __name__ == "__main__":

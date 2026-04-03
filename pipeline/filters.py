@@ -43,5 +43,6 @@ filter = (
     "fcmb",
     "opay",
     "palmpay",
-    "kuda"
+    "kuda",
+    "money",
 )
