@@ -31,7 +31,7 @@ class NairametricsScraper:
         }
         self.logger = logger or Logger(level=logging.INFO)
 
-    def scrape_category(self) -> Optional[NewsLike]:
+    def scrape_category(self) -> NewsLike:
 
         response: Optional[requests.Response] = None
 
@@ -41,9 +41,10 @@ class NairametricsScraper:
             response.raise_for_status()
             self.logger.debug(f"Response: {response.status_code}")
 
-        except requests.exceptions.Timeout:
-            self.logger.error("Request timeout - site may be down")
-            return
+        except requests.exceptions.Timeout as e:
+            self.logger.error(f"Request timeout - site may be down: {e}")
+            self.logger.error(exception=e, save_to_json=True)
+            raise
 
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Failed to fetch page: {e}")

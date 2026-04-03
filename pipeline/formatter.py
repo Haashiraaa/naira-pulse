@@ -3,7 +3,7 @@
 # formatter.py
 
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Union, cast
 
 
 class NewsFormatter:
@@ -12,8 +12,8 @@ class NewsFormatter:
     LINK_TEXT = "👉 Full story:"
 
     @classmethod
-    def format(cls, news_item: Dict[str, str]) -> str:
-        dt = datetime.fromisoformat(news_item["timestamp"])
+    def format(cls, news_item: Dict[str, Union[str, None]]) -> str:
+        dt = datetime.fromisoformat(cast(str, news_item["timestamp"]))
         formatted_date = dt.strftime("%b %d, %Y %I:%M %p")
 
         return (
