@@ -58,8 +58,8 @@ class NewsPipeline:
                 for news_item in news:
 
                     formatted_news = NewsFormatter.format(news_item)
-                    # bot.send_message(formatted_news, news_item)
-                    self.logger.info(formatted_news)
+                    bot.send_message(formatted_news, news_item)
+                    # self.logger.info(formatted_news)
 
                 self.store.news = scraped_news
                 self.store.save()
