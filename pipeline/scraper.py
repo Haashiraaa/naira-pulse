@@ -18,7 +18,7 @@ class NairametricsScraper:
         self.URL = (
             "https://nairametrics.com"
             "/wp-json/wp/v2/posts?categories=207871&_embed"
-            "&per_page=50"
+            "&per_page=25"
         )
 
         self.headers: Dict[str, str] = {

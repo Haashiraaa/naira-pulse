@@ -54,6 +54,7 @@ class NewsPipeline:
                 scraped_news = self.scraper.fetch_financial_news()
 
                 news = processor.get_new_items(scraped_news)
+                news = news[::-1]
 
                 for news_item in news:
 
