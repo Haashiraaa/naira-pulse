@@ -2,4 +2,4 @@
 
 # requirements.txt
 
-git+https://github.com/Haashiraaa/haashi-analytics-toolkit.git@v1.6.0
+haashi_pkg==1.6.0
